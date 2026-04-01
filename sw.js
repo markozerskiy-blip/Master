@@ -1,5 +1,5 @@
 const CACHE = 'prorab-v1';
-const ASSETS = ['/', '/index.html', '/manifest.json'];
+const ASSETS = ['/Master/', '/Master/index.html', '/Master/manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
