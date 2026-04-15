@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="theme-color" content="#111111" />
+  <title>Прораб</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg:#111111; --bg2:#1a1a1a; --bg3:#222222; --bg4:#2a2a2a;
+      --border:#333333; --border2:#444444;
+      --accent:#d4a017; --accent2:rgba(212,160,23,.08);
+      --text:#e8e8e8; --text2:#999999; --text3:#666666;
+      --green:#4caf50; --red:#c0392b; --blue:#5b9bd5;
+      --mono:'IBM Plex Mono',monospace;
+      --sans:'IBM Plex Sans',sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;max-width:480px;margin:0 auto;overflow-x:hidden;}
+    #app{height:100vh;display:flex;flex-direction:column;}
+
+    .header{background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;}
+    .header-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 12px;}
+    .header-left{display:flex;flex-direction:column;gap:2px;min-width:0;}
+    .header-tag{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;}
+    .object-selector{display:flex;align-items:center;gap:8px;cursor:pointer;}
+    .object-name{font-size:17px;font-weight:600;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+    .object-arrow{color:var(--text3);font-size:12px;}
+    .header-right{display:flex;align-items:center;gap:10px;}
+    .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--green);transition:background .3s;}
+    .sync-dot.offline{background:var(--text3);}
+    .sync-dot.online{animation:pulse-green 2s ease-in-out infinite;}
+    @keyframes pulse-green{0%,100%{box-shadow:0 0 0 0 rgba(76,175,80,.7)}50%{box-shadow:0 0 0 4px rgba(76,175,80,0)}}
+    .search-btn{background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:2px 4px;line-height:1;}
+    .search-btn.active{color:var(--accent);}
+    .hist-btn{background:none;border:none;color:var(--text3);font-size:17px;cursor:pointer;padding:2px 4px;line-height:1;}
+    .hist-btn.active{color:var(--accent);}
+
+    .search-bar{padding:0 12px 10px;display:none;}
+    .search-bar.visible{display:block;}
+    .search-input-wrap{position:relative;}
+    .search-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:3px;padding:9px 36px 9px 12px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;}
+    .search-input:focus{border-color:var(--accent);}
+    .search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;display:none;}
+    .search-clear.visible{display:block;}
+
+    .nav{display:flex;border-top:1px solid var(--border);overflow-x:auto;scrollbar-width:none;}
+    .nav::-webkit-scrollbar{display:none;}
+    .nav-btn{flex:1;min-width:72px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text3);padding:11px 6px;font-size:11px;font-weight:600;font-family:var(--sans);letter-spacing:.3px;cursor:pointer;transition:color .1s,border-color .1s;text-transform:uppercase;white-space:nowrap;}
+    .nav-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+    .nav-badge{background:var(--red);color:#fff;border-radius:3px;font-size:9px;font-family:var(--mono);padding:1px 4px;margin-left:3px;vertical-align:middle;}
+
+    .screens-wrap{flex:1;overflow:hidden;position:relative;}
+    .screens-inner{display:flex;height:100%;transition:transform .28s cubic-bezier(.4,0,.2,1);}
+    .screen{min-width:100%;height:100%;overflow-y:auto;padding:14px 12px 100px;}
+
+    .date-row{display:flex;gap:6px;align-items:center;margin-bottom:14px;}
+    .date-pill{background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:8px 16px;font-size:14px;font-weight:700;font-family:var(--mono);color:var(--text2);cursor:pointer;white-space:nowrap;transition:all .1s;text-transform:uppercase;}
+    .date-pill.active{border-color:var(--accent);color:var(--accent);background:var(--accent2);}
+    .date-input{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:8px 10px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;min-width:0;}
+    .date-input::-webkit-calendar-picker-indicator{filter:invert(.5);}
+
+    .stats-bar{display:flex;gap:16px;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:14px;}
+    .stat-item{display:flex;flex-direction:column;gap:2px;}
+    .stat-val{font-family:var(--mono);font-size:18px;font-weight:500;}
+    .stat-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;}
+    .section-label{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;padding:16px 0 8px;}
+
+    /* SKELETON */
+    .skeleton{background:var(--bg2);border:1px solid var(--border);border-radius:4px;margin-bottom:8px;padding:13px 12px;}
+    .skel-line{background:var(--bg3);border-radius:2px;height:11px;margin-bottom:8px;animation:shimmer 1.4s infinite;}
+    .skel-line:last-child{margin-bottom:0;}
+    .skel-line.w40{width:40%;} .skel-line.w60{width:60%;} .skel-line.w80{width:80%;}
+    @keyframes shimmer{0%,100%{opacity:.35}50%{opacity:.8}}
+
+    .u-card{background:var(--bg2);border:1px solid var(--border);border-radius:4px;margin-bottom:8px;overflow:hidden;}
+    .u-card.done{opacity:.75;}
+    .u-card.optimistic{opacity:.65;border-style:dashed;}
+    .u-main{display:flex;align-items:flex-start;padding:13px 12px;gap:11px;cursor:pointer;}
+    .u-rooms{flex-shrink:0;display:flex;flex-direction:column;gap:4px;padding-top:1px;min-width:48px;}
+    .u-room{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);background:rgba(212,160,23,.1);border:1px solid rgba(212,160,23,.2);border-radius:3px;padding:4px 8px;text-align:center;display:block;}
+    .u-room.otk-clr{color:var(--blue);background:rgba(91,155,213,.1);border-color:rgba(91,155,213,.2);}
+    .u-time{font-family:var(--mono);font-size:11px;color:var(--blue);text-align:center;margin-top:4px;padding:2px 4px;background:rgba(91,155,213,.07);border-radius:2px;}
+    .u-body{flex:1;min-width:0;}
+    .u-desc{font-size:14px;font-weight:400;color:var(--text);line-height:1.5;overflow:hidden;}
+    .u-card.done .u-desc{text-decoration:line-through;color:var(--text2);}
+    .u-workers{display:flex;flex-direction:column;gap:3px;margin-top:7px;}
+    .u-worker{font-size:13px;color:var(--text2);font-weight:400;}
+    .u-meta-row{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center;}
+    .u-meta{font-family:var(--mono);font-size:11px;color:var(--text3);}
+    .u-meta.edited{color:#9a7a20;}
+    .u-check-col{flex-shrink:0;padding-top:2px;}
+    .check-btn{width:28px;height:28px;border-radius:3px;border:1px solid var(--border2);background:none;cursor:pointer;font-size:13px;color:transparent;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+    .check-btn.done{background:var(--green);border-color:var(--green);color:#fff;}
+    .check-btn:active{transform:scale(.85);}
+
+    .u-expand{border-top:1px solid var(--border);background:var(--bg3);}
+    .u-actions{display:flex;gap:6px;padding:10px 12px;flex-wrap:wrap;align-items:center;}
+    .act-btn{font-family:var(--mono);font-size:11px;font-weight:500;border:1px solid var(--border2);border-radius:3px;padding:5px 10px;background:none;color:var(--text2);cursor:pointer;}
+    .act-btn:active{background:var(--bg4);}
+    .act-btn.edit{color:var(--accent);border-color:rgba(212,160,23,.35);}
+    .act-btn.move{color:var(--blue);border-color:rgba(91,155,213,.35);}
+    .act-btn.move-today{color:var(--green);border-color:rgba(76,175,80,.35);}
+    .act-btn.del{color:var(--red);border-color:rgba(192,57,43,.35);}
+
+    .edit-log{border-top:1px solid var(--border);padding:10px 12px;background:var(--bg);}
+    .edit-log-title{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+    .edit-log-item{padding:6px 0;border-bottom:1px solid var(--border);}
+    .edit-log-item:last-child{border-bottom:none;}
+    .edit-log-who{font-family:var(--mono);font-size:10px;color:var(--accent);}
+    .edit-log-what{font-size:12px;color:var(--text2);margin-top:2px;}
+    .edit-log-old{font-family:var(--mono);font-size:11px;color:var(--text3);text-decoration:line-through;margin-top:1px;}
+
+    .hist-date-block{margin-bottom:8px;}
+    .hist-date-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);cursor:pointer;user-select:none;}
+    .hist-date-header:active{background:var(--bg3);}
+    .hist-date-label{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text2);}
+    .hist-date-stat{font-family:var(--mono);font-size:11px;color:var(--text3);}
+    .hist-date-arrow{font-family:var(--mono);font-size:11px;color:var(--text3);margin-left:8px;transition:transform .2s;}
+    .hist-date-arrow.open{transform:rotate(180deg);}
+    .hist-date-body{padding-top:6px;display:none;}
+    .hist-date-body.open{display:block;}
+    .hist-load-more{width:100%;background:none;border:1px dashed var(--border2);border-radius:3px;padding:12px;font-size:12px;font-family:var(--mono);color:var(--text3);cursor:pointer;margin-top:4px;}
+    .hist-load-more:active{background:var(--bg2);}
+    /* modal над клавиатурой */
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+    .modal{background:var(--bg2);border-top:1px solid var(--border2);border-radius:6px 6px 0 0;padding:20px 18px 0;width:100%;max-width:480px;animation:slideUp .18s ease-out;max-height:75vh;overflow:hidden;display:flex;flex-direction:column;}
+    .modal-scroll{flex:1;overflow-y:auto;padding:0 0 8px;}
+    .modal-btns{display:flex;gap:8px;padding:12px 0 max(16px,env(safe-area-inset-bottom));flex-shrink:0;background:var(--bg2);border-top:1px solid var(--border);}
+
+    .empty{padding:60px 0;text-align:center;}
+    .empty-code{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:1px;margin-bottom:10px;}
+    .empty-text{font-size:14px;color:var(--text3);}
+    .no-results{padding:32px 0;text-align:center;}
+    .no-results-text{font-family:var(--mono);font-size:12px;color:var(--text3);}
+
+    /* FAB with label */
+    .fab-wrap{position:fixed;bottom:24px;right:16px;display:flex;align-items:center;gap:8px;z-index:90;}
+    .fab-label{font-family:var(--mono);font-size:11px;font-weight:600;color:#111;background:var(--accent);border-radius:3px;padding:5px 10px;opacity:0;transform:translateX(6px);transition:opacity .15s,transform .15s;pointer-events:none;white-space:nowrap;box-shadow:0 2px 8px rgba(212,160,23,.25);}
+    .fab-label.visible{opacity:1;transform:translateX(0);}
+    .fab{width:52px;height:52px;border-radius:4px;background:var(--accent);border:none;color:#111;font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(212,160,23,.35);transition:transform .1s;flex-shrink:0;}
+    .fab:active{transform:scale(.94);}
+
+    /* overlay/modal defined above */
+    @keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+    .modal-handle{width:32px;height:3px;background:var(--border2);border-radius:2px;margin:0 auto 18px;}
+    .modal-title{font-size:16px;font-weight:700;margin-bottom:18px;}
+    .field-wrap{margin-bottom:12px;}
+    .field-label{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;display:block;}
+    .field-hint{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px;}
+    input[type="text"],input[type="number"],input[type="time"],textarea,select{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:3px;padding:12px 14px;font-size:14px;font-family:var(--sans);color:var(--text);outline:none;transition:border-color .1s;-webkit-appearance:none;}
+    input:focus,textarea:focus,select:focus{border-color:var(--accent);}
+    textarea{min-height:76px;resize:none;}
+    .modal-btns{display:flex;gap:8px;margin-top:4px;}
+    .btn-cancel{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:3px;padding:14px;font-size:13px;font-weight:600;font-family:var(--sans);color:var(--text2);cursor:pointer;}
+    .btn-submit{flex:2;background:var(--accent);border:none;border-radius:3px;padding:14px;font-size:13px;font-weight:700;font-family:var(--sans);color:#111;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;}
+    .btn-submit:disabled{opacity:.4;}
+
+    .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border2);border-radius:3px;padding:10px 18px;font-family:var(--mono);font-size:12px;color:var(--text);z-index:300;white-space:nowrap;animation:toastIn .15s ease-out;}
+    @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+    .obj-list{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
+    .obj-row{display:flex;gap:8px;align-items:center;}
+    .obj-item{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+    .obj-item:active{background:var(--bg4);}
+    .obj-item.selected{border-color:var(--accent);}
+    .obj-item-name{font-size:14px;font-weight:600;}
+    .obj-item-check{font-family:var(--mono);font-size:12px;color:var(--accent);}
+    .obj-del{font-family:var(--mono);font-size:11px;color:var(--red);border:1px solid rgba(192,57,43,.3);border-radius:3px;padding:6px 10px;background:none;cursor:pointer;flex-shrink:0;}
+
+    .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:300;display:flex;align-items:center;justify-content:center;}
+    .confirm-box{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:24px 20px;width:calc(100% - 48px);max-width:340px;animation:fadeIn .15s;}
+    @keyframes fadeIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+    .confirm-title{font-size:15px;font-weight:700;margin-bottom:8px;}
+    .confirm-text{font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.5;}
+    .confirm-btns{display:flex;gap:8px;}
+    .confirm-cancel{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:3px;padding:12px;font-size:13px;font-weight:600;font-family:var(--sans);color:var(--text2);cursor:pointer;}
+    .confirm-ok{flex:1;background:var(--red);border:none;border-radius:3px;padding:12px;font-size:13px;font-weight:700;font-family:var(--sans);color:#fff;cursor:pointer;}
+
+    /* Чекбоксы работ */
+    .work-grid{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+    .work-col{display:flex;flex-direction:column;gap:4px;min-width:80px;}
+    .work-item{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;padding:3px 0;}
+    .work-cb{width:18px;height:18px;border-radius:3px;border:1px solid var(--border2);background:var(--bg3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;transition:all .15s;}
+    .work-item.checked .work-cb{background:var(--accent);border-color:var(--accent);color:#111;}
+    .work-label{font-size:13px;color:var(--text2);font-family:var(--sans);}
+    .work-item.checked .work-label{color:var(--text);}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-top">
+      <div class="header-left">
+        <div class="header-tag">Текущий объект</div>
+        <div class="object-selector" onclick="openObjectPicker()">
+          <div class="object-name" id="current-object-name">Загрузка...</div>
+          <div class="object-arrow">&#9662;</div>
+        </div>
+      </div>
+      <div class="header-right" style="gap:16px">
+        <button class="hist-btn" id="hist-btn" onclick="toggleHistory()" title="История">&#9202;</button>
+        <button class="search-btn" id="search-toggle-btn" onclick="toggleSearch()">&#9906;</button>
+        <div class="sync-dot offline" id="sync-dot"></div>
+      </div>
+    </div>
+    <div class="search-bar" id="search-bar">
+      <div class="search-input-wrap">
+        <input class="search-input" id="search-input" type="text" placeholder="Поиск..." oninput="onSearchInput()" />
+        <button class="search-clear" id="search-clear" onclick="clearSearch()">&#215;</button>
+      </div>
+    </div>
+    <div class="nav">
+      <button class="nav-btn active" onclick="goTo(0)" id="tab-0">Задачи<span class="nav-badge" id="task-badge" style="display:none">0</span></button>
+      <button class="nav-btn" onclick="goTo(1)" id="tab-1">ОТК<span class="nav-badge" id="otk-badge" style="display:none">0</span></button>
+      <button class="nav-btn" onclick="goTo(2)" id="tab-2">Дела<span class="nav-badge" id="mat-badge" style="display:none">0</span></button>
+    </div>
+  </div>
+
+  <div class="screens-wrap" id="screens-wrap">
+    <div class="screens-inner" id="screens-inner">
+      <div class="screen" id="screen-0">
+        <div class="date-row">
+          <div class="date-pill active" id="pill-today" onclick="setDate('today')">Сегодня</div>
+          <div class="date-pill" id="pill-tomorrow" onclick="setDate('tomorrow')">Завтра</div>
+          <input type="date" class="date-input" id="date-picker" onchange="setDate('custom')" />
+        </div>
+        <div class="stats-bar">
+          <div class="stat-item"><div class="stat-val" id="stat-total">0</div><div class="stat-label">Всего</div></div>
+          <div class="stat-item"><div class="stat-val" id="stat-done">0</div><div class="stat-label">Готово</div></div>
+          <div class="stat-item"><div class="stat-val" id="stat-left">0</div><div class="stat-label">Осталось</div></div>
+        </div>
+        <div id="tasks-list"></div>
+      </div>
+      <div class="screen" id="screen-1"><div id="otk-list"></div></div>
+      <div class="screen" id="screen-2"><div id="materials-list"></div></div>
+      <div class="screen" id="screen-3"><div id="history-list"></div></div>
+    </div>
+  </div>
+
+  <div class="fab-wrap" id="fab-wrap">
+    <div class="fab-label" id="fab-label"></div>
+    <button class="fab" onclick="openModal()">+</button>
+  </div>
+</div>
+
+<!-- TASK MODAL -->
+<div class="overlay" id="modal-task" style="display:none" onclick="closeModalOutside(event,'modal-task')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-scroll">
+      <div class="modal-title" id="modal-task-title">Новая задача</div>
+      <input type="hidden" id="edit-task-id" />
+      <div class="field-wrap">
+        <label class="field-label">№ Помещений</label>
+        <input type="text" id="f-room" placeholder="101 102 103" inputmode="numeric" />
+        <div class="field-hint">Через пробел — в столбик на карточке</div>
+      </div>
+      <div class="field-wrap">
+        <label class="field-label">Работы</label>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap" id="work-grid-top">
+            <div class="work-col">
+              <div class="work-item" data-val="Sa" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Sa</span></div>
+              <div class="work-item" data-val="St" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">St</span></div>
+            </div>
+            <div class="work-col">
+              <div class="work-item" data-val="Уборка" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Уборка</span></div>
+              <div class="work-item" data-val="Ремонт" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Ремонт</span></div>
+            </div>
+            <div class="work-col">
+              <div class="work-item" data-val="Грунт 1 сл" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Грунт 1 сл</span></div>
+              <div class="work-item" data-val="Грунт 2 сл" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Грунт 2 сл</span></div>
+            </div>
+            <div class="work-col">
+              <div class="work-item" data-val="Полосовка" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Полосовка</span></div>
+              <div class="work-item" data-val="Шероховка" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Шероховка</span></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border)"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap" id="work-grid">
+            <div class="work-col">
+              <div class="work-item" data-val="Финиш 1 сл" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Финиш 1 сл</span></div>
+              <div class="work-item" data-val="Финиш 2 сл" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Финиш 2 сл</span></div>
+            </div>
+            <div class="work-col">
+              <div class="work-item" data-val="Обезжирка" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Обезжирка</span></div>
+              <div class="work-item" data-val="Защита" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Защита</span></div>
+            </div>
+            <div class="work-col">
+              <div class="work-item" data-val="Рем. прожогов" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Рем. прожогов</span></div>
+              <div class="work-item" data-val="Акт" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Акт</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="field-wrap">
+        <label class="field-label">Исполнители</label>
+        <input type="text" id="f-workers" placeholder="Иванов Петров Сидоров" />
+        <div class="field-hint">Через пробел — в столбик на карточке</div>
+      </div>
+      <div class="field-wrap">
+        <label class="field-label">Описание работ</label>
+        <textarea id="f-desc" placeholder="Дополнительно..." rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-task')">Отмена</button>
+      <button class="btn-submit" id="btn-task-submit" onclick="submitTask()">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAT MODAL -->
+<div class="overlay" id="modal-mat" style="display:none" onclick="closeModalOutside(event,'modal-mat')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-scroll">
+      <div class="modal-title" id="modal-mat-title">Новое дело</div>
+      <input type="hidden" id="edit-mat-id" />
+      <div class="field-wrap">
+        <label class="field-label">Описание</label>
+        <textarea id="f-mat" placeholder="Описание дела..."></textarea>
+      </div>
+      <div class="field-wrap">
+        <label class="field-label">Срок и время</label>
+        <input type="datetime-local" id="f-mat-due" />
+        <div class="field-hint">Необязательно — для сортировки по сроку</div>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-mat')">Отмена</button>
+      <button class="btn-submit" id="btn-mat-submit" onclick="submitMaterial()">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- OTK MODAL -->
+<div class="overlay" id="modal-otk" style="display:none" onclick="closeModalOutside(event,'modal-otk')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-scroll">
+      <div class="modal-title" id="modal-otk-title">Новая запись ОТК</div>
+      <input type="hidden" id="edit-otk-id" />
+      <div class="field-wrap">
+        <label class="field-label">№ Помещений</label>
+        <input type="text" id="f-otk-room" placeholder="101 102" inputmode="numeric" />
+        <div class="field-hint">Через пробел — в столбик</div>
+      </div>
+      <div class="field-wrap">
+        <label class="field-label">Работы</label>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap" id="work-grid-otk-top">
+            <div class="work-col">
+              <div class="work-item" data-val="Sa" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Sa</span></div>
+              <div class="work-item" data-val="St" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">St</span></div>
+            </div>
+            <div class="work-col">
+              <div class="work-item" data-val="Уборка" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Уборка</span></div>
+              <div class="work-item" data-val="Ремонт" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Ремонт</span></div>
+            </div>
+            <div class="work-col">
+              <div class="work-item" data-val="Грунт 1 сл" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Грунт 1 сл</span></div>
+              <div class="work-item" data-val="Грунт 2 сл" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Грунт 2 сл</span></div>
+            </div>
+            <div class="work-col">
+              <div class="work-item" data-val="Полосовка" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Полосовка</span></div>
+              <div class="work-item" data-val="Шероховка" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Шероховка</span></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border)"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap" id="work-grid-otk">
+            <div class="work-col">
+              <div class="work-item" data-val="Финиш 1 сл" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Финиш 1 сл</span></div>
+              <div class="work-item" data-val="Финиш 2 сл" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Финиш 2 сл</span></div>
+            </div>
+            <div class="work-col">
+              <div class="work-item" data-val="Обезжирка" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Обезжирка</span></div>
+              <div class="work-item" data-val="Защита" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Защита</span></div>
+            </div>
+            <div class="work-col">
+              <div class="work-item" data-val="Рем. прожогов" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Рем. прожогов</span></div>
+              <div class="work-item" data-val="Акт" onclick="toggleWork(this)"><div class="work-cb">&#10003;</div><span class="work-label">Акт</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="field-wrap">
+        <label class="field-label">Дата и время</label>
+        <input type="datetime-local" id="f-otk-datetime" />
+      </div>
+      <div class="field-wrap">
+        <label class="field-label">Описание работ</label>
+        <textarea id="f-otk-desc" placeholder="Описание..."></textarea>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-otk')">Отмена</button>
+      <button class="btn-submit" id="btn-otk-submit" onclick="submitOtk()">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD OBJECT MODAL -->
+<div class="overlay" id="modal-add-object" style="display:none" onclick="closeModalOutside(event,'modal-add-object')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Новый объект</div>
+    <div class="field-wrap">
+      <label class="field-label">Название</label>
+      <input type="text" id="f-new-object" placeholder="Например: ЖК Северный, корп. 2" />
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-add-object')">Отмена</button>
+      <button class="btn-submit" onclick="submitNewObject()">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- OBJECT PICKER -->
+<div class="overlay" id="modal-objects" style="display:none" onclick="closeModalOutside(event,'modal-objects')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Выбор объекта</div>
+    <div class="obj-list" id="obj-list"></div>
+    <button class="btn-cancel" style="width:100%;margin-bottom:8px;" onclick="openAddObjectModal()">+ Добавить объект</button>
+    <div class="modal-btns"><button class="btn-cancel" onclick="closeModal('modal-objects')">Закрыть</button></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://wqsjoglprmkkvbzbzalq.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indxc2pvZ2xwcm1ra3ZiemJ6YWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5NjUwNDksImV4cCI6MjA5MDU0MTA0OX0.hBIPfxm4cgqkYkCAfGByit-1C197E241FTiZ7shF1rA';
+const {createClient}=supabase;
+const db=createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let currentTab=0, filterDate=getTodayStr();
+let isOnline=navigator.onLine;
+let currentObjectId=null, currentObjectName=null;
+let objects=[], tasks=[], materials=[], otkItems=[], editLogs={}, matEditLogs={};
+let touchStartX=0, touchStartY=0, isSwiping=false, touchStartScrollTop=0;
+let searchQuery='', searchVisible=false;
+let historyDaysShown=7;
+
+const FAB_LABELS=['Задача','ОТК','Дело',''];
+
+function getTodayStr(){return new Date().toISOString().slice(0,10);}
+function getTomorrowStr(){const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);}
+function formatDate(s){if(!s)return'';const[y,m,d]=s.split('-');return`${d}.${m}.${y}`;}
+function formatDt(s){if(!s)return'';const d=new Date(s);return`${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
+function formatTime(s){if(!s)return'';return String(s).slice(0,5);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');}
+function splitSpace(s){return (s||'').trim().split(/\s+/).filter(Boolean);}
+
+// ── SWIPE (improved: won't trigger during vertical scroll) ──
+document.addEventListener('DOMContentLoaded',()=>{
+  const w=document.getElementById('screens-wrap');
+  w.addEventListener('touchstart',e=>{
+    touchStartX=e.touches[0].clientX;
+    touchStartY=e.touches[0].clientY;
+    isSwiping=false;
+    const scr=document.getElementById('screen-'+currentTab);
+    touchStartScrollTop=scr?scr.scrollTop:0;
+  },{passive:true});
+  w.addEventListener('touchmove',e=>{
+    const dx=Math.abs(e.touches[0].clientX-touchStartX);
+    const dy=Math.abs(e.touches[0].clientY-touchStartY);
+    const scr=document.getElementById('screen-'+currentTab);
+    const didScroll=scr&&Math.abs(scr.scrollTop-touchStartScrollTop)>4;
+    if(didScroll){isSwiping=false;return;}
+    if(!isSwiping&&dx>dy&&dx>14)isSwiping=true;
+  },{passive:true});
+  w.addEventListener('touchend',e=>{
+    if(!isSwiping)return;
+    const dx=e.changedTouches[0].clientX-touchStartX;
+    if(Math.abs(dx)<60)return;
+    if(dx<0&&currentTab<3)goTo(currentTab+1);
+    else if(dx>0&&currentTab>0)goTo(currentTab-1);
+  },{passive:true});
+  initApp();
+});
+
+function goTo(idx){
+  if(idx===3)return; // история теперь через кнопку в шапке
+  currentTab=idx;
+  document.getElementById('screens-inner').style.transform=`translateX(-${idx*100}%)`;
+  document.querySelectorAll('.nav-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  const fw=document.getElementById('fab-wrap');
+  const fl=document.getElementById('fab-label');
+  fw.style.display='flex';
+  fl.textContent=FAB_LABELS[idx]||'';
+  fl.classList.toggle('visible',!!(FAB_LABELS[idx]));
+  localStorage.setItem('lastTab',idx);
+  if(searchVisible)toggleSearch(false);
+  const ph=['Поиск по задачам...','Поиск по ОТК...','Поиск по материалам...'];
+  const si=document.getElementById('search-input');
+  if(si)si.placeholder=ph[idx]||'Поиск...';
+  if(idx===1)loadOtk();
+}
+
+function toggleHistory(){
+  const btn=document.getElementById('hist-btn');
+  if(currentTab===3){
+    // закрываем историю — возвращаемся на предыдущую вкладку
+    const prev=parseInt(localStorage.getItem('lastTab')||'0');
+    currentTab=prev<3?prev:0;
+    document.getElementById('screens-inner').style.transform=`translateX(-${currentTab*100}%)`;
+    document.querySelectorAll('.nav-btn').forEach((b,i)=>b.classList.toggle('active',i===currentTab));
+    document.getElementById('fab-wrap').style.display='flex';
+    btn.classList.remove('active');
+  } else {
+    // открываем историю
+    currentTab=3;
+    document.getElementById('screens-inner').style.transform='translateX(-300%)';
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('fab-wrap').style.display='none';
+    btn.classList.add('active');
+    historyDaysShown=7;
+    renderHistory();
+  }
+}
+
+// ── SEARCH ──
+function toggleSearch(force){
+  searchVisible=typeof force==='boolean'?force:!searchVisible;
+  document.getElementById('search-bar').classList.toggle('visible',searchVisible);
+  document.getElementById('search-toggle-btn').classList.toggle('active',searchVisible);
+  if(searchVisible)setTimeout(()=>document.getElementById('search-input').focus(),80);
+  else clearSearch();
+}
+function onSearchInput(){
+  const v=document.getElementById('search-input').value;
+  searchQuery=v.toLowerCase();
+  document.getElementById('search-clear').classList.toggle('visible',v.length>0);
+  renderCurrentTab();
+}
+function clearSearch(){
+  document.getElementById('search-input').value='';
+  searchQuery='';
+  document.getElementById('search-clear').classList.remove('visible');
+  renderCurrentTab();
+}
+function renderCurrentTab(){
+  if(currentTab===0)renderTasks();
+  else if(currentTab===1)renderOtk();
+  else if(currentTab===2)renderMaterials();
+  else renderHistory();
+}
+function matchSearch(text){return!searchQuery||String(text||'').toLowerCase().includes(searchQuery);}
+
+// ── CONFIRM ──
+function confirm2(title,text,onOk){
+  const div=document.createElement('div');div.className='confirm-overlay';
+  div.innerHTML=`<div class="confirm-box"><div class="confirm-title">${esc(title)}</div><div class="confirm-text">${esc(text)}</div><div class="confirm-btns"><button class="confirm-cancel">Отмена</button><button class="confirm-ok">Удалить</button></div></div>`;
+  document.body.appendChild(div);
+  div.querySelector('.confirm-cancel').onclick=()=>div.remove();
+  div.querySelector('.confirm-ok').onclick=()=>{div.remove();onOk();};
+}
+
+// ── SKELETON ──
+function showSkeleton(id,n=3){
+  const el=document.getElementById(id);if(!el)return;
+  el.innerHTML=Array(n).fill(0).map(()=>`<div class="skeleton"><div class="skel-line w40"></div><div class="skel-line w80"></div><div class="skel-line w60"></div></div>`).join('');
+}
+
+// ── INDEXEDDB ──
+let idb=null;
+const IDB_NAME='prorab',IDB_VER=1;
+
+function openIDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(IDB_NAME,IDB_VER);
+    req.onupgradeneeded=e=>{
+      const db=e.target.result;
+      ['objects','tasks','task_edits','materials','material_edits','otk','sync_queue'].forEach(name=>{
+        if(!db.objectStoreNames.contains(name)){
+          const store=db.createObjectStore(name,{keyPath:'id'});
+          if(name==='sync_queue')store.createIndex('table','table',{unique:false});
+        }
+      });
+    };
+    req.onsuccess=e=>{idb=e.target.result;res(idb);};
+    req.onerror=()=>rej(req.error);
+  });
+}
+
+function idbGetAll(store){
+  return new Promise((res,rej)=>{
+    const tx=idb.transaction(store,'readonly');
+    const req=tx.objectStore(store).getAll();
+    req.onsuccess=()=>res(req.result||[]);
+    req.onerror=()=>rej(req.error);
+  });
+}
+
+function idbPut(store,obj){
+  return new Promise((res,rej)=>{
+    const tx=idb.transaction(store,'readwrite');
+    const req=tx.objectStore(store).put(obj);
+    req.onsuccess=()=>res();
+    req.onerror=()=>rej(req.error);
+  });
+}
+
+function idbDelete(store,id){
+  return new Promise((res,rej)=>{
+    const tx=idb.transaction(store,'readwrite');
+    const req=tx.objectStore(store).delete(id);
+    req.onsuccess=()=>res();
+    req.onerror=()=>rej(req.error);
+  });
+}
+
+function idbClear(store){
+  return new Promise((res,rej)=>{
+    const tx=idb.transaction(store,'readwrite');
+    const req=tx.objectStore(store).clear();
+    req.onsuccess=()=>res();
+    req.onerror=()=>rej(req.error);
+  });
+}
+
+// ── SYNC QUEUE ──
+// Каждая офлайн-операция пишется в очередь
+async function queueOp(table,op,payload){
+  const entry={id:'q-'+Date.now()+'-'+Math.random().toString(36).slice(2),table,op,payload,ts:Date.now()};
+  await idbPut('sync_queue',entry);
+}
+
+async function flushQueue(){
+  if(!isOnline)return;
+  const all=await idbGetAll('sync_queue');
+  if(!all.length)return;
+  all.sort((a,b)=>a.ts-b.ts);
+  for(const entry of all){
+    try{
+      if(entry.op==='insert'){
+        await db.from(entry.table).insert(entry.payload);
+      }else if(entry.op==='update'){
+        await db.from(entry.table).update(entry.payload.data).eq('id',entry.payload.id);
+      }else if(entry.op==='delete'){
+        await db.from(entry.table).delete().eq('id',entry.payload.id);
+      }
+      await idbDelete('sync_queue',entry.id);
+    }catch(e){
+      // оставляем в очереди, попробуем позже
+      break;
+    }
+  }
+  const remaining=await idbGetAll('sync_queue');
+  if(!remaining.length)showToast('\u2713 Синхронизировано');
+}
+
+// ── ONLINE/OFFLINE ──
+let idbReady=false;
+function setOnline(val){
+  isOnline=val;
+  const dot=document.getElementById('sync-dot');
+  if(dot){dot.classList.toggle('offline',!val);dot.classList.toggle('online',val);}
+  // flushQueue только если IDB уже открыт и это не первый вызов при старте
+  if(val&&idbReady){
+    flushQueue().then(()=>syncFromSupabase()).catch(()=>{});
+  }
+}
+
+async function syncFromSupabase(){
+  if(!isOnline||!currentObjectId)return;
+  try{
+    const[{data:t},{data:m},{data:o}]=await Promise.all([
+      db.from('tasks').select('*').eq('object_id',currentObjectId),
+      db.from('materials').select('*').eq('object_id',currentObjectId),
+      db.from('otk').select('*').eq('object_id',currentObjectId),
+    ]);
+    if(t){await idbClear('tasks');for(const r of t)await idbPut('tasks',r);tasks=t;renderTasks();}
+    if(m){await idbClear('materials');for(const r of m)await idbPut('materials',r);materials=m;renderMaterials();}
+    if(o){
+      // мёржим scheduled_dt из IDB — Supabase может не знать эту колонку
+      const idbOtk=await idbGetAll('otk');
+      const idbMap={};idbOtk.forEach(x=>{idbMap[x.id]=x;});
+      const merged=o.map(r=>({...r,scheduled_dt:r.scheduled_dt||idbMap[r.id]?.scheduled_dt||null}));
+      await idbClear('otk');for(const r of merged)await idbPut('otk',r);otkItems=merged;renderOtk();
+    }
+  }catch(e){
+    setOnline(false);
+  }
+}
+
+// ── INIT ──
+function dbgLog(msg){
+  const el=document.getElementById('tasks-list');
+  if(el)el.innerHTML+='<div style="font-family:monospace;font-size:11px;color:#999;padding:2px 0">'+msg+'</div>';
+}
+
+async function initApp(){
+  filterDate=getTodayStr();
+  document.getElementById('date-picker').value=filterDate;
+  showSkeleton('tasks-list',3);
+
+  dbgLog('1. открываем IDB...');
+  try{await openIDB();idbReady=true;dbgLog('1. IDB OK');}
+  catch(e){dbgLog('1. IDB ОШИБКА: '+e.message);}
+
+  isOnline=navigator.onLine;
+  updateSyncDot();
+  dbgLog('2. сеть: '+(isOnline?'онлайн':'офлайн'));
+
+  dbgLog('3. грузим кэш...');
+  try{await loadFromIDB();dbgLog('3. кэш OK');}
+  catch(e){dbgLog('3. кэш ОШИБКА: '+e.message);}
+
+  window.addEventListener('online',()=>setOnline(true));
+  window.addEventListener('offline',()=>setOnline(false));
+
+  if(isOnline){
+    dbgLog('4. грузим объекты из Supabase...');
+    try{
+      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('таймаут 8с')),8000));
+      await Promise.race([loadObjects(),timeout]);
+      dbgLog('4. объекты OK');
+      subscribeRealtime();
+      dbgLog('5. грузим задачи...');
+      await loadTasks();
+      dbgLog('5. задачи OK');
+      await loadMaterials();
+      dbgLog('6. дела OK');
+      flushQueue().catch(()=>{});
+    }catch(e){
+      dbgLog('ОШИБКА Supabase: '+e.message+' — переходим на кэш');
+      isOnline=false;updateSyncDot();
+      try{await loadObjectsFromIDB();}catch(e2){dbgLog('кэш объектов ОШИБКА');}
+    }
+  }else{
+    dbgLog('4. офлайн — грузим объекты из кэша...');
+    try{await loadObjectsFromIDB();dbgLog('4. кэш объектов OK');}
+    catch(e){dbgLog('4. ОШИБКА: '+e.message);}
+  }
+
+  dbgLog('готово!');
+  const saved=parseInt(localStorage.getItem('lastTab')||'0');
+  if(saved>0&&saved<3){
+    document.getElementById('screens-inner').style.transition='none';
+    goTo(saved);
+    requestAnimationFrame(()=>{document.getElementById('screens-inner').style.transition='';});
+  }
+
+  // Автоперенос незавершённых прошедших задач
+  await autoCarryOver();
+  scheduleCarryOver();
+}
+
+async function autoCarryOver(){
+  const today=getTodayStr();
+  const overdue=tasks.filter(t=>!t.done&&t.date<today);
+  if(!overdue.length)return;
+  for(const t of overdue){
+    t.date=today;
+    await idbPut('tasks',t);
+    if(isOnline){
+      try{await db.from('tasks').update({date:today}).eq('id',t.id);}
+      catch(e){await queueOp('tasks','update',{id:t.id,data:{date:today}});}
+    }else{
+      await queueOp('tasks','update',{id:t.id,data:{date:today}});
+    }
+  }
+  renderTasks();
+  showToast('→ '+overdue.length+' задач перенесено на сегодня');
+}
+
+function scheduleCarryOver(){
+  // считаем сколько ms до следующей полуночи
+  const now=new Date();
+  const midnight=new Date(now);
+  midnight.setHours(24,0,0,0);
+  const ms=midnight-now;
+  setTimeout(async()=>{
+    await autoCarryOver();
+    scheduleCarryOver(); // повторяем каждые сутки
+  },ms);
+}
+
+function updateSyncDot(){
+  document.getElementById('sync-dot').classList.toggle('offline',!isOnline);
+}
+
+async function loadFromIDB(){
+  if(!currentObjectId){
+    // попробуем взять objectId из localStorage
+    const saved=localStorage.getItem('objectId');
+    if(saved)currentObjectId=saved;
+  }
+  if(!currentObjectId)return;
+  try{
+    const[t,m,o]=await Promise.all([
+      idbGetAll('tasks'),
+      idbGetAll('materials'),
+      idbGetAll('otk'),
+    ]);
+    tasks=(t||[]).filter(x=>x.object_id===currentObjectId);
+    materials=(m||[]).filter(x=>x.object_id===currentObjectId);
+    otkItems=(o||[]).filter(x=>x.object_id===currentObjectId);
+    renderTasks();renderMaterials();renderOtk();
+  }catch(e){}
+}
+
+async function loadObjectsFromIDB(){
+  try{
+    const all=await idbGetAll('objects');
+    objects=all||[];
+    const saved=localStorage.getItem('objectId');
+    if(saved&&objects.find(o=>o.id===saved))currentObjectId=saved;
+    else if(objects.length)currentObjectId=objects[0].id;
+    const obj=objects.find(o=>o.id===currentObjectId);
+    currentObjectName=obj?obj.name:'—';
+    document.getElementById('current-object-name').textContent=currentObjectName||'Нет объектов';
+  }catch(e){}
+}
+
+// ── OBJECTS ──
+async function loadObjects(){
+  try{
+    const{data,error}=await db.from('objects').select('*').order('created_at');
+    if(error)throw error;
+    objects=data||[];
+    // сохраняем в IDB
+    await idbClear('objects');
+    for(const o of objects)await idbPut('objects',o);
+  }catch(e){
+    setOnline(false);
+    await loadObjectsFromIDB();
+    return;
+  }
+  const saved=localStorage.getItem('objectId');
+  if(saved&&objects.find(o=>o.id===saved))currentObjectId=saved;
+  else if(objects.length)currentObjectId=objects[0].id;
+  const obj=objects.find(o=>o.id===currentObjectId);
+  currentObjectName=obj?obj.name:'—';
+  document.getElementById('current-object-name').textContent=currentObjectName||'Нет объектов';
+}
+
+function openObjectPicker(){
+  document.getElementById('obj-list').innerHTML=objects.map(o=>`
+    <div class="obj-row">
+      <div class="obj-item ${o.id===currentObjectId?'selected':''}" onclick="selectObject('${o.id}','${esc(o.name)}')">
+        <div class="obj-item-name">${esc(o.name)}</div>
+        ${o.id===currentObjectId?'<div class="obj-item-check">&#10003;</div>':''}
+      </div>
+      <button class="obj-del" onclick="deleteObject('${o.id}','${esc(o.name)}')">&#10005;</button>
+    </div>`).join('');
+  document.getElementById('modal-objects').style.display='flex';
+}
+
+function selectObject(id,name){
+  currentObjectId=id;currentObjectName=name;
+  localStorage.setItem('objectId',id);
+  document.getElementById('current-object-name').textContent=name;
+  closeModal('modal-objects');
+  showSkeleton('tasks-list',3);
+  loadTasks();loadMaterials();loadOtk();
+}
+
+function openAddObjectModal(){
+  closeModal('modal-objects');
+  document.getElementById('f-new-object').value='';
+  document.getElementById('modal-add-object').style.display='flex';
+  setTimeout(()=>document.getElementById('f-new-object').focus(),100);
+}
+
+async function submitNewObject(){
+  const name=document.getElementById('f-new-object').value.trim();
+  if(!name){showToast('Введите название');return;}
+  const newObj={id:crypto.randomUUID(),name,created_at:new Date().toISOString()};
+  objects.push(newObj);
+  await idbPut('objects',newObj);
+  if(isOnline){
+    try{await db.from('objects').insert(newObj);}
+    catch(e){await queueOp('objects','insert',newObj);}
+  }else{
+    await queueOp('objects','insert',newObj);
+  }
+  closeModal('modal-add-object');selectObject(newObj.id,newObj.name);openObjectPicker();
+}
+
+function deleteObject(id,name){
+  confirm2('Удалить объект?',`"${name}" — действие нельзя отменить.`,()=>{
+    confirm2('Второе подтверждение',`Все данные объекта "${name}" будут удалены навсегда.`,async()=>{
+      await Promise.all([
+        db.from('tasks').delete().eq('object_id',id),
+        db.from('materials').delete().eq('object_id',id),
+        db.from('otk').delete().eq('object_id',id),
+      ]);
+      await db.from('objects').delete().eq('id',id);
+      objects=objects.filter(o=>o.id!==id);
+      if(currentObjectId===id){
+        currentObjectId=objects.length?objects[0].id:null;
+        currentObjectName=objects.length?objects[0].name:'—';
+        if(currentObjectId)localStorage.setItem('objectId',currentObjectId);
+        document.getElementById('current-object-name').textContent=currentObjectName||'—';
+      }
+      closeModal('modal-objects');
+      loadTasks();loadMaterials();loadOtk();
+      showToast('Объект удалён');
+    });
+  });
+}
+
+// ── REALTIME ──
+function subscribeRealtime(){
+  db.channel('rt-tasks')
+    .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},handleTaskChange)
+    .subscribe(s=>{document.getElementById('sync-dot').classList.toggle('offline',s!=='SUBSCRIBED');});
+  db.channel('rt-mats')
+    .on('postgres_changes',{event:'*',schema:'public',table:'materials'},()=>loadMaterials())
+    .subscribe();
+  db.channel('rt-mat-edits')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'material_edits'},payload=>{
+      const e=payload.new;
+      if(!matEditLogs[e.material_id])matEditLogs[e.material_id]=[];
+      matEditLogs[e.material_id].unshift(e);renderMaterials();
+    }).subscribe();
+  db.channel('rt-edits')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'task_edits'},payload=>{
+      const e=payload.new;
+      if(!editLogs[e.task_id])editLogs[e.task_id]=[];
+      editLogs[e.task_id].unshift(e);
+      renderTasks();if(currentTab===3)renderHistory();
+    }).subscribe();
+  db.channel('rt-otk')
+    .on('postgres_changes',{event:'*',schema:'public',table:'otk'},()=>{if(currentTab===1)loadOtk();})
+    .subscribe();
+}
+
+function handleTaskChange(payload){
+  const{eventType,new:n,old:o}=payload;
+  if(eventType==='INSERT'){if(!tasks.find(t=>t.id===n.id))tasks.push(n);}
+  else if(eventType==='UPDATE'){const i=tasks.findIndex(t=>t.id===n.id);if(i>=0)tasks[i]=n;else tasks.push(n);}
+  else if(eventType==='DELETE'){
+    const delId=o&&o.id;
+    if(delId)tasks=tasks.filter(t=>t.id!==delId);
+    else{loadTasks();return;}
+  }
+  renderTasks();if(currentTab===3)renderHistory();
+}
+
+// ── LOAD ──
+async function loadTasks(){
+  if(!currentObjectId)return;
+  try{
+    const{data,error}=await db.from('tasks').select('*').eq('object_id',currentObjectId).order('created_at',{ascending:true});
+    if(error)throw error;
+    tasks=data||[];
+    await idbClear('tasks');
+    for(const t of tasks)await idbPut('tasks',t);
+    const ids=tasks.map(t=>t.id);
+    if(ids.length){
+      const{data:logs}=await db.from('task_edits').select('*').in('task_id',ids).order('created_at',{ascending:false});
+      editLogs={};
+      (logs||[]).forEach(l=>{if(!editLogs[l.task_id])editLogs[l.task_id]=[];editLogs[l.task_id].push(l);});
+      await idbClear('task_edits');
+      for(const l of (logs||[]))await idbPut('task_edits',l);
+    }
+  }catch(e){
+    setOnline(false);
+    // грузим из IDB
+    const all=await idbGetAll('tasks');
+    tasks=(all||[]).filter(t=>t.object_id===currentObjectId);
+    const allLogs=await idbGetAll('task_edits');
+    editLogs={};
+    (allLogs||[]).filter(l=>tasks.find(t=>t.id===l.task_id)).forEach(l=>{
+      if(!editLogs[l.task_id])editLogs[l.task_id]=[];editLogs[l.task_id].push(l);
+    });
+  }
+  renderTasks();
+}
+
+async function loadMaterials(){
+  if(!currentObjectId)return;
+  try{
+    const{data,error}=await db.from('materials').select('*').eq('object_id',currentObjectId).order('created_at',{ascending:false});
+    if(error)throw error;
+    materials=data||[];
+    await idbClear('materials');
+    for(const m of materials)await idbPut('materials',m);
+    const ids=materials.map(m=>m.id);
+    if(ids.length){
+      const{data:logs}=await db.from('material_edits').select('*').in('material_id',ids).order('created_at',{ascending:false});
+      matEditLogs={};
+      (logs||[]).forEach(l=>{if(!matEditLogs[l.material_id])matEditLogs[l.material_id]=[];matEditLogs[l.material_id].push(l);});
+      await idbClear('material_edits');
+      for(const l of (logs||[]))await idbPut('material_edits',l);
+    }
+  }catch(e){
+    setOnline(false);
+    const all=await idbGetAll('materials');
+    materials=(all||[]).filter(m=>m.object_id===currentObjectId);
+    const allLogs=await idbGetAll('material_edits');
+    matEditLogs={};
+    (allLogs||[]).filter(l=>materials.find(m=>m.id===l.material_id)).forEach(l=>{
+      if(!matEditLogs[l.material_id])matEditLogs[l.material_id]=[];matEditLogs[l.material_id].push(l);
+    });
+  }
+  renderMaterials();
+}
+
+async function loadOtk(){
+  if(!currentObjectId)return;
+  try{
+    const{data,error}=await db.from('otk').select('*').eq('object_id',currentObjectId).order('created_at',{ascending:false});
+    if(error)throw error;
+    // мёржим scheduled_dt из IDB
+    const idbOtk=await idbGetAll('otk');
+    const idbMap={};idbOtk.forEach(x=>{idbMap[x.id]=x;});
+    otkItems=(data||[]).map(r=>({...r,scheduled_dt:r.scheduled_dt||idbMap[r.id]?.scheduled_dt||null}));
+    await idbClear('otk');
+    for(const o of otkItems)await idbPut('otk',o);
+  }catch(e){
+    setOnline(false);
+    const all=await idbGetAll('otk');
+    otkItems=(all||[]).filter(o=>o.object_id===currentObjectId);
+  }
+  renderOtk();
+}
+
+// ── HELPERS ──
+function roomsHtml(s,isOtk){return splitSpace(s).map(r=>`<span class="u-room${isOtk?' otk-clr':''}">${esc(r)}</span>`).join('');}
+let workerFilter=null;
+function workersHtml(s){
+  if(!s)return'';
+  return '<div class="u-workers">'+splitSpace(s).map(function(w){
+    var active=workerFilter===w;
+    var el=document.createElement('span');
+    el.className='u-worker';
+    // используем data-атрибут чтобы избежать проблем с кавычками
+    return '<span class="u-worker" data-wf="'+esc(w)+'" onclick="event.stopPropagation();setWorkerFilter(this.dataset.wf)" style="cursor:pointer'+(active?';color:var(--accent)':'')+'">'+(active?'&#9654; ':'&#128119; ')+esc(w)+'</span>';
+  }).join('')+'</div>';
+}
+function setWorkerFilter(name){
+  workerFilter=(workerFilter===name)?null:name;
+  showToast(workerFilter?('Фильтр: '+workerFilter):'Фильтр снят');
+  renderTasks();
+}
+function editLogHtml(logs){
+  if(!logs||!logs.length)return'';
+  return`<div class="edit-log"><div class="edit-log-title">// Лог изменений</div>${logs.map(l=>`<div class="edit-log-item"><div class="edit-log-who">${esc(l.author||'Мастер')} &middot; ${formatDt(l.created_at)}</div><div class="edit-log-what">${fieldName(l.field)}: ${esc(l.new_value)}</div>${l.old_value?`<div class="edit-log-old">Было: ${esc(l.old_value)}</div>`:''}</div>`).join('')}</div>`;
+}
+function matEditLogHtml(logs){
+  if(!logs||!logs.length)return'';
+  return`<div class="edit-log"><div class="edit-log-title">// Лог изменений</div>${logs.map(l=>`<div class="edit-log-item"><div class="edit-log-who">Мастер &middot; ${formatDt(l.created_at)}</div><div class="edit-log-what">Текст: ${esc(l.new_value)}</div>${l.old_value?`<div class="edit-log-old">Было: ${esc(l.old_value)}</div>`:''}</div>`).join('')}</div>`;
+}
+function fieldName(f){return{description:'Описание',workers:'Исполнители',room:'Помещение'}[f]||f;}
+
+function copyText(text){
+  if(navigator.clipboard){navigator.clipboard.writeText(text).then(()=>showToast('&#10003; Скопировано')).catch(()=>fallbackCopy(text));}
+  else fallbackCopy(text);
+}
+function fallbackCopy(text){
+  const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{document.execCommand('copy');showToast('\u2713 Скопировано');}catch(e){}
+  document.body.removeChild(ta);
+}
+
+// ── RENDER TASKS ──
+let taskDoneOpen=false;
+function toggleTaskDone(){
+  taskDoneOpen=!taskDoneOpen;
+  const body=document.getElementById('task-done-body');
+  const arrow=document.getElementById('task-done-arrow');
+  if(body)body.style.display=taskDoneOpen?'block':'none';
+  if(arrow)arrow.style.transform=taskDoneOpen?'rotate(180deg)':'rotate(0deg)';
+}
+
+function sortTasks(arr){
+  return [...arr].sort((a,b)=>{
+    // берём первый номер из room для сортировки
+    const numA=parseInt((a.room||'').trim().split(/\s+/)[0])||0;
+    const numB=parseInt((b.room||'').trim().split(/\s+/)[0])||0;
+    if(numA!==numB)return numA-numB;
+    return new Date(a.created_at)-new Date(b.created_at);
+  });
+}
+
+function renderTasks(){
+  const list=document.getElementById('tasks-list');
+  const filtered=tasks.filter(t=>t.date===filterDate);
+  const pending=filtered.filter(t=>!t.done);
+  const done=filtered.filter(t=>t.done);
+  document.getElementById('stat-total').textContent=filtered.length;
+  document.getElementById('stat-done').textContent=done.length;
+  document.getElementById('stat-left').textContent=pending.length;
+  const todayPending=tasks.filter(t=>t.date===getTodayStr()&&!t.done).length;
+  const tb=document.getElementById('task-badge');
+  tb.style.display=todayPending?'inline':'none';
+  tb.textContent=todayPending;
+
+  const applyFilters=arr=>{
+    let r=arr;
+    if(searchQuery)r=r.filter(t=>matchSearch(t.description)||matchSearch(t.room)||matchSearch(t.workers));
+    if(workerFilter)r=r.filter(t=>(t.workers||'').includes(workerFilter));
+    return sortTasks(r);
+  };
+  const fPending=applyFilters(pending);
+  const fDone=applyFilters(done);
+
+  if(!filtered.length){list.innerHTML=`<div class="empty"><div class="empty-code">// ЗАДАЧ НЕТ</div><div class="empty-text">${formatDate(filterDate)}</div></div>`;return;}
+  if(searchQuery&&!fPending.length&&!fDone.length){list.innerHTML='<div class="no-results"><div class="no-results-text">// Ничего не найдено</div></div>';return;}
+  let html='';
+  fPending.forEach(t=>{html+=taskCardHtml(t,false);});
+  if(fDone.length){
+    html+=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;margin-bottom:8px;overflow:hidden">
+      <div onclick="toggleTaskDone()" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;user-select:none">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase">// Выполнено &mdash; ${fDone.length}</span>
+        <span id="task-done-arrow" style="font-size:10px;color:var(--text3);transition:transform .2s;transform:${taskDoneOpen?'rotate(180deg)':'rotate(0deg)'}">&#9660;</span>
+      </div>
+      <div id="task-done-body" style="display:${taskDoneOpen?'block':'none'}">${fDone.map(t=>taskCardHtml(t,false)).join('')}</div>
+    </div>`;
+  }
+  list.innerHTML=html;
+}
+
+function taskCardHtml(t,histMode){
+  const today=getTodayStr(),tomorrow=getTomorrowStr();
+  const canEdit=!histMode&&(t.date===today||t.date===tomorrow);
+  const canMoveNext=!t.done&&t.date===today&&!histMode;
+  const canMoveToday=!t.done&&t.date===tomorrow&&!histMode;
+  const logs=editLogs[t.id]||[];
+  const uid='tc'+t.id.replace(/-/g,'');
+  const copyVal=[t.room,t.description,t.workers].filter(Boolean).join(' | ');
+  return`<div class="u-card ${t.done?'done':''} ${t._optimistic?'optimistic':''}">
+    <div class="u-main" onclick="toggleExpand('${uid}')">
+      <div class="u-rooms">${roomsHtml(t.room,false)}</div>
+      <div class="u-body">
+        <div class="u-desc">${(()=>{
+          var lines=esc(t.description||'').split('\n');
+          var works=lines[0]||'';
+          var extra=lines.slice(1).join('\n').trim();
+          return '<span style="color:var(--accent);font-size:13px;letter-spacing:.2px;line-height:1.6">'+works+'</span>'
+            +'<div style="border-top:1px solid var(--border);margin:6px 0 4px"></div>'
+            +(extra?'<span style="white-space:pre-wrap;color:var(--text2);font-size:13px;line-height:1.6;padding:2px 0;display:block">'+extra+'</span>':'');
+        })()}</div>
+        ${workersHtml(t.workers)}
+        <div class="u-meta-row">${logs.length?'<span class="u-meta edited">&#9998; изм.</span>':''}</div>
+      </div>
+      <div class="u-check-col">
+        ${!histMode
+          ?`<button class="check-btn ${t.done?'done':''}" onclick="event.stopPropagation();toggleTask('${t.id}',${t.done})">${t.done?'&#10003;':''}</button>`
+          :`<span style="font-family:var(--mono);font-size:13px;color:${t.done?'var(--green)':'var(--text3)'}">${t.done?'&#10003;':'&mdash;'}</span>`}
+      </div>
+    </div>
+    <div id="${uid}" style="display:none">
+      <div class="u-expand"><div class="u-actions">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3);flex:1">${formatDate(t.date)}</span>
+        ${canEdit?`<button class="act-btn edit" onclick="openEditTask('${t.id}')">&#9998; Ред.</button>`:''}
+        ${!histMode?`<button class="act-btn" onclick="duplicateTask('${t.id}')">&#10063; Копия</button>`:''}
+        ${canMoveNext?`<button class="act-btn move" onclick="moveTask('${t.id}','next')">&rarr; Завтра</button>`:''}
+        ${canMoveToday?`<button class="act-btn move-today" onclick="moveTask('${t.id}','today')">&larr; Сегодня</button>`:''}
+        <button class="act-btn" onclick="copyText('${esc(copyVal)}')">&#9138; Копировать</button>
+        ${!histMode?`<button class="act-btn del" onclick="confirmDeleteTask('${t.id}')">&#10005;</button>`:''}
+      </div></div>
+      ${editLogHtml(logs)}
+    </div>
+  </div>`;
+}
+
+// ── RENDER HISTORY ──
+let histOpenDates={};// запоминаем открытые даты
+
+function toggleHistDate(date){
+  histOpenDates[date]=!histOpenDates[date];
+  // обновляем только эту дату без полного rerenderа
+  const header=document.getElementById('hh-'+date);
+  const body=document.getElementById('hb-'+date);
+  const arrow=document.getElementById('ha-'+date);
+  if(!header||!body||!arrow)return;
+  const open=histOpenDates[date];
+  body.classList.toggle('open',open);
+  arrow.classList.toggle('open',open);
+}
+
+function renderHistory(){
+  const list=document.getElementById('history-list');
+  if(!tasks.length){list.innerHTML='<div class="empty"><div class="empty-code">// ИСТОРИЯ ПУСТА</div></div>';return;}
+  const groups={};
+  tasks.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
+  const allDates=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
+  const visDates=searchQuery?allDates:allDates.slice(0,historyDaysShown);
+  const today=getTodayStr(),tomorrow=getTomorrowStr();
+  let html='';let shown=0;
+  visDates.forEach(date=>{
+    const arr=searchQuery?groups[date].filter(t=>matchSearch(t.description)||matchSearch(t.room)||matchSearch(t.workers)):groups[date];
+    if(!arr.length)return;shown++;
+    const doneC=arr.filter(t=>t.done).length;
+    const label=date===today?'Сегодня':date===tomorrow?'Завтра':formatDate(date);
+    const isOpen=!!histOpenDates[date];
+    const safeDate=date.replace(/-/g,'');
+    html+=`<div class="hist-date-block">
+      <div class="hist-date-header" id="hh-${safeDate}" onclick="toggleHistDate('${safeDate}')">
+        <div class="hist-date-label">${label}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="hist-date-stat">${doneC}/${arr.length}</div>
+          <div class="hist-date-arrow ${isOpen?'open':''}" id="ha-${safeDate}">&#9660;</div>
+        </div>
+      </div>
+      <div class="hist-date-body ${isOpen?'open':''}" id="hb-${safeDate}">
+        ${arr.map(t=>taskCardHtml(t,true)).join('')}
+      </div>
+    </div>`;
+  });
+  if(!shown)html='<div class="no-results"><div class="no-results-text">// Ничего не найдено</div></div>';
+  else if(!searchQuery&&allDates.length>historyDaysShown)html+=`<button class="hist-load-more" onclick="loadMoreHistory()">Загрузить ещё (${allDates.length-historyDaysShown} дн.)</button>`;
+  list.innerHTML=html;
+}
+function loadMoreHistory(){historyDaysShown+=7;renderHistory();}
+
+// ── RENDER MATERIALS ──
+let matDoneOpen=false;
+function toggleMatDone(){
+  matDoneOpen=!matDoneOpen;
+  const body=document.getElementById('mat-done-body');
+  const arrow=document.getElementById('mat-done-arrow');
+  if(body)body.style.display=matDoneOpen?'block':'none';
+  if(arrow)arrow.style.transform=matDoneOpen?'rotate(180deg)':'rotate(0deg)';
+}
+function renderMaterials(){
+  const list=document.getElementById('materials-list');
+  const pendingAll=materials.filter(m=>!m.done);
+  const badge=document.getElementById('mat-badge');
+  badge.style.display=pendingAll.length?'inline':'none';
+  badge.textContent=pendingAll.length;
+  if(!materials.length){list.innerHTML='<div class="empty"><div class="empty-code">// ДЕЛ НЕТ</div></div>';return;}
+  const fPending=searchQuery?pendingAll.filter(m=>matchSearch(m.text)):pendingAll;
+  const fDone=searchQuery?materials.filter(m=>m.done&&matchSearch(m.text)):materials.filter(m=>m.done);
+  if(searchQuery&&!fPending.length&&!fDone.length){list.innerHTML='<div class="no-results"><div class="no-results-text">// Ничего не найдено</div></div>';return;}
+  let html='';
+  // сортировка: сначала с дедлайном (по дате), потом без
+  const sortedPending=[...fPending].sort((a,b)=>{
+    if(a.due_date&&b.due_date)return a.due_date.localeCompare(b.due_date);
+    if(a.due_date)return -1;
+    if(b.due_date)return 1;
+    return 0;
+  });
+  sortedPending.forEach(m=>{html+=matCardHtml(m);});
+  if(fDone.length){
+    html+=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;margin-bottom:8px;overflow:hidden">
+      <div onclick="toggleMatDone()" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;user-select:none">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase">// Завершено &mdash; ${fDone.length}</span>
+        <span id="mat-done-arrow" style="font-size:10px;color:var(--text3);transition:transform .2s;transform:${matDoneOpen?'rotate(180deg)':'rotate(0deg)'}">&#9660;</span>
+      </div>
+      <div id="mat-done-body" style="display:${matDoneOpen?'block':'none'}">${fDone.map(m=>matCardHtml(m)).join('')}</div>
+    </div>`;
+  }
+  list.innerHTML=html;
+}
+
+function matDueLabel(due){
+  if(!due)return '';
+  // парсим строку напрямую без new Date() чтобы избежать timezone сдвига
+  var dPart=due.slice(0,10);
+  var tPart=due.includes('T')?due.slice(11,16):'';
+  var dArr=dPart.split('-');
+  var d=dArr[2]+'.'+dArr[1];
+  var html='<div style="display:flex;flex-direction:column;gap:3px;min-width:44px">';
+  html+='<span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent)">'+d+'</span>';
+  if(tPart)html+='<span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--blue)">'+tPart+'</span>';
+  html+='</div>';
+  return html;
+}
+function matCardHtml(m){
+  var uid='mc'+m.id.replace(/-/g,'');
+  var logs=matEditLogs[m.id]||[];
+  var dueHtml=(!m.done&&m.due_date)?matDueLabel(m.due_date):'';
+  var metaHtml=logs.length?'<span class="u-meta edited">&#9998; изм.</span>':'';
+  var isDone=m.done?'done':'';
+  var chk=m.done?'&#10003;':'';
+  return `<div class="u-card ${isDone}">
+    <div class="u-main" onclick="toggleExpand('${uid}')">
+      ${dueHtml?`<div class="u-rooms">${dueHtml}</div>`:''}
+      <div class="u-body">
+        <div class="u-desc" style="white-space:pre-wrap">${esc(m.text)}</div>
+        <div class="u-meta-row">${metaHtml}</div>
+      </div>
+      <div class="u-check-col">
+        <button class="check-btn ${isDone}" onclick="event.stopPropagation();toggleMat('${m.id}',${!!m.done})">${chk}</button>
+      </div>
+    </div>
+    <div id="${uid}" style="display:none">
+      <div class="u-expand"><div class="u-actions"><span style="flex:1"></span>
+        <button class="act-btn" data-copy="${esc(m.text)}" onclick="copyText(this.dataset.copy)">&#9138; Копировать</button>
+        <button class="act-btn edit" onclick="openEditMat('${m.id}')">&#9998; Ред.</button>
+        <button class="act-btn del" onclick="confirmDeleteMat('${m.id}')">&#10005; Удалить</button>
+      </div></div>
+      ${matEditLogHtml(logs)}
+    </div>
+  </div>`;
+}
+
+// ── RENDER OTK ──
+let otkDoneOpen=false;
+function toggleOtkDone(){
+  otkDoneOpen=!otkDoneOpen;
+  const body=document.getElementById('otk-done-body');
+  const arrow=document.getElementById('otk-done-arrow');
+  if(body)body.style.display=otkDoneOpen?'block':'none';
+  if(arrow)arrow.style.transform=otkDoneOpen?'rotate(180deg)':'rotate(0deg)';
+}
+function otkCardHtml(o){
+  var uid='oc'+o.id.replace(/-/g,'');
+  var isDone=o.done?'done':'';
+  var chk=o.done?'&#10003;':'';
+  var timeHtml='';
+  if(o.scheduled_dt){
+    // парсим строку напрямую без new Date() чтобы избежать timezone конвертации
+    var dtStr=o.scheduled_dt; // формат: "2024-01-15T09:00" или "2024-01-15T09:00:00"
+    var dPart=dtStr.slice(0,10); // "2024-01-15"
+    var tPart=dtStr.length>=16?dtStr.slice(11,16):''; // "09:00"
+    var dArr=dPart.split('-');
+    var dFormatted=dArr[2]+'.'+dArr[1]; // "15.01"
+    timeHtml='<div class="u-time" style="font-size:13px;font-weight:600">'+dFormatted+(tPart?' '+tPart:'')+'</div>';
+  } else if(o.scheduled_time){
+    timeHtml='<div class="u-time" style="font-size:13px;font-weight:600">'+formatTime(o.scheduled_time)+'</div>';
+  };
+  var _lines=esc(o.description||'').split('\n');
+  var _works=_lines[0]||'';
+  var _extra=_lines.slice(1).join('\n').trim();
+  var descHtml='<span style="color:var(--accent);font-size:13px;letter-spacing:.2px;line-height:1.6">'+_works+'</span>'
+    +'<div style="border-top:1px solid var(--border);margin:6px 0 4px"></div>'
+    +(_extra?'<span style="white-space:pre-wrap;color:var(--text2);font-size:13px;line-height:1.6;padding:2px 0;display:block">'+_extra+'</span>':'');
+  var copyVal=esc([o.room,o.scheduled_dt?o.scheduled_dt.replace('T',' ').slice(0,16):'',o.description].filter(Boolean).join(' | '));
+  return `<div class="u-card ${isDone} ${o._optimistic?'optimistic':''}">
+    <div class="u-main" onclick="toggleExpand('${uid}')">
+      <div class="u-rooms">
+        ${roomsHtml(o.room,true)}
+        ${timeHtml}
+      </div>
+      <div class="u-body"><div class="u-desc" style="white-space:pre-wrap">${descHtml}</div></div>
+      <div class="u-check-col">
+        <button class="check-btn ${isDone}" onclick="event.stopPropagation();toggleOtk('${o.id}',${!!o.done})">${chk}</button>
+      </div>
+    </div>
+    <div id="${uid}" style="display:none">
+      <div class="u-expand"><div class="u-actions"><span style="flex:1"></span>
+        <button class="act-btn" data-copy="${copyVal}" onclick="copyText(this.dataset.copy)">&#9138; Копировать</button>
+        <button class="act-btn edit" onclick="openEditOtk('${o.id}')">&#9998; Ред.</button>
+        <button class="act-btn del" onclick="confirmDeleteOtk('${o.id}')">&#10005;</button>
+      </div></div>
+    </div>
+  </div>`;
+}
+
+function renderOtk(){
+  const list=document.getElementById('otk-list');
+  const pending=otkItems.filter(o=>!o.done);
+  const done=otkItems.filter(o=>o.done);
+  const ob=document.getElementById('otk-badge');
+  ob.style.display=pending.length?'inline':'none';
+  ob.textContent=pending.length;
+  if(!otkItems.length){list.innerHTML='<div class="empty"><div class="empty-code">// ЗАПИСЕЙ НЕТ</div></div>';return;}
+  const sortOtk=arr=>[...arr].sort((a,b)=>{
+    if(a.scheduled_dt&&b.scheduled_dt)return a.scheduled_dt.localeCompare(b.scheduled_dt);
+    if(a.scheduled_dt)return -1;
+    if(b.scheduled_dt)return 1;
+    return new Date(a.created_at)-new Date(b.created_at);
+  });
+  const fPending=sortOtk(searchQuery?pending.filter(o=>matchSearch(o.description)||matchSearch(o.room)):pending);
+  const fDone=searchQuery?done.filter(o=>matchSearch(o.description)||matchSearch(o.room)):done;
+  if(searchQuery&&!fPending.length&&!fDone.length){list.innerHTML='<div class="no-results"><div class="no-results-text">// Ничего не найдено</div></div>';return;}
+  let html=fPending.map(o=>otkCardHtml(o)).join('');
+  if(fDone.length){
+    html+=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;margin-bottom:8px;overflow:hidden">
+      <div onclick="toggleOtkDone()" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;user-select:none">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase">// Выполнено &mdash; ${fDone.length}</span>
+        <span id="otk-done-arrow" style="font-size:10px;color:var(--text3);transition:transform .2s;transform:${otkDoneOpen?'rotate(180deg)':'rotate(0deg)'}">&#9660;</span>
+      </div>
+      <div id="otk-done-body" style="display:${otkDoneOpen?'block':'none'}">${fDone.map(o=>otkCardHtml(o)).join('')}</div>
+    </div>`;
+  }
+  list.innerHTML=html;
+}
+
+function toggleExpand(id){const el=document.getElementById(id);if(el)el.style.display=el.style.display==='none'?'block':'none';}
+
+// ── DATE ──
+function setDate(type){
+  const today=getTodayStr(),tomorrow=getTomorrowStr();
+  if(type==='today')filterDate=today;
+  else if(type==='tomorrow')filterDate=tomorrow;
+  else filterDate=document.getElementById('date-picker').value;
+  document.getElementById('pill-today').classList.toggle('active',filterDate===today);
+  document.getElementById('pill-tomorrow').classList.toggle('active',filterDate===tomorrow);
+  if(type!=='custom')document.getElementById('date-picker').value=filterDate;
+  renderTasks();
+}
+
+// ── ACTIONS ──
+async function toggleTask(id,isDone){
+  if(navigator.vibrate)navigator.vibrate(isDone?[10]:[15,10,15]);
+  const t=tasks.find(t=>t.id===id);if(t)t.done=!isDone;
+  renderTasks();
+  if(t)await idbPut('tasks',t);
+  if(isOnline){
+    try{await db.from('tasks').update({done:!isDone}).eq('id',id);}
+    catch(e){await queueOp('tasks','update',{id,data:{done:!isDone}});}
+  }else{
+    await queueOp('tasks','update',{id,data:{done:!isDone}});
+  }
+}
+async function moveTask(id,dir){
+  const t=tasks.find(t=>t.id===id);
+  const newDate=dir==='next'?getTomorrowStr():getTodayStr();
+  if(t){t.date=newDate;t.done=false;}
+  renderTasks();
+  if(t)await idbPut('tasks',t);
+  if(isOnline){
+    try{await db.from('tasks').update({date:newDate,done:false}).eq('id',id);}
+    catch(e){await queueOp('tasks','update',{id,data:{date:newDate,done:false}});}
+  }else{
+    await queueOp('tasks','update',{id,data:{date:newDate,done:false}});
+  }
+  showToast(dir==='next'?'&rarr; Перенесено на завтра':'&larr; Перенесено на сегодня');
+}
+async function duplicateTask(id){
+  const t=tasks.find(t=>t.id===id);
+  if(!t)return;
+  const newTask={id:crypto.randomUUID(),room:t.room,description:t.description,workers:t.workers,date:filterDate,done:false,author:'Мастер',object_id:currentObjectId,created_at:new Date().toISOString()};
+  tasks.push(newTask);
+  await idbPut('tasks',newTask);
+  renderTasks();
+  if(isOnline){
+    try{await db.from('tasks').insert(newTask);}
+    catch(e){await queueOp('tasks','insert',newTask);}
+  }else{
+    await queueOp('tasks','insert',newTask);
+  }
+  showToast('✓ Задача скопирована');
+}
+
+function confirmDeleteTask(id){
+  confirm2('Удалить задачу?','Это действие нельзя отменить.',async()=>{
+    tasks=tasks.filter(t=>t.id!==id);renderTasks();
+    await idbDelete('tasks',id);
+    if(isOnline){
+      try{await db.from('tasks').delete().eq('id',id);}
+      catch(e){await queueOp('tasks','delete',{id});}
+    }else{
+      await queueOp('tasks','delete',{id});
+    }
+    showToast('\u2713 Задача удалена');
+  });
+}
+async function toggleMat(id,isDone){
+  if(navigator.vibrate)navigator.vibrate(isDone?[10]:[15,10,15]);
+  const m=materials.find(m=>m.id===id);if(m)m.done=!isDone;
+  renderMaterials();
+  if(m)await idbPut('materials',m);
+  if(isOnline){
+    try{await db.from('materials').update({done:!isDone}).eq('id',id);}
+    catch(e){await queueOp('materials','update',{id,data:{done:!isDone}});}
+  }else{
+    await queueOp('materials','update',{id,data:{done:!isDone}});
+  }
+}
+async function toggleOtk(id,isDone){
+  if(navigator.vibrate)navigator.vibrate(isDone?[10]:[15,10,15]);
+  const o=otkItems.find(o=>o.id===id);if(o)o.done=!isDone;
+  renderOtk();
+  if(o)await idbPut('otk',o);
+  if(isOnline){
+    try{await db.from('otk').update({done:!isDone}).eq('id',id);}
+    catch(e){await queueOp('otk','update',{id,data:{done:!isDone}});}
+  }else{
+    await queueOp('otk','update',{id,data:{done:!isDone}});
+  }
+}
+function confirmDeleteMat(id){
+  confirm2('Удалить дело?','Это действие нельзя отменить.',async()=>{
+    materials=materials.filter(m=>m.id!==id);renderMaterials();
+    await idbDelete('materials',id);
+    if(isOnline){
+      try{await db.from('materials').delete().eq('id',id);}
+      catch(e){await queueOp('materials','delete',{id});}
+    }else{
+      await queueOp('materials','delete',{id});
+    }
+    showToast('\u2713 Дело удалено');
+  });
+}
+function confirmDeleteOtk(id){
+  confirm2('Удалить запись ОТК?','Это действие нельзя отменить.',async()=>{
+    otkItems=otkItems.filter(o=>o.id!==id);renderOtk();
+    await idbDelete('otk',id);
+    if(isOnline){
+      try{await db.from('otk').delete().eq('id',id);}
+      catch(e){await queueOp('otk','delete',{id});}
+    }else{
+      await queueOp('otk','delete',{id});
+    }
+    showToast('\u2713 Запись удалена');
+  });
+}
+
+// ── MODALS ──
+function openModal(){
+  if(currentTab===2){
+    document.getElementById('edit-mat-id').value='';
+    document.getElementById('modal-mat-title').textContent='Новое дело';
+    document.getElementById('btn-mat-submit').textContent='Добавить';
+    document.getElementById('f-mat').value='';
+    document.getElementById('f-mat-due').value='';
+    document.getElementById('modal-mat').style.display='flex';
+    setTimeout(()=>document.getElementById('f-mat').focus(),100);
+  }else if(currentTab===1){
+    document.getElementById('edit-otk-id').value='';
+    document.getElementById('modal-otk-title').textContent='Новая запись ОТК';
+    document.getElementById('btn-otk-submit').textContent='Добавить';
+    document.getElementById('f-otk-room').value='';
+    document.getElementById('f-otk-datetime').value='';
+    document.getElementById('f-otk-desc').value='';
+    resetWork('work-grid-otk');
+    document.getElementById('modal-otk').style.display='flex';
+    setTimeout(()=>document.getElementById('f-otk-room').focus(),100);
+  }else{
+    document.getElementById('edit-task-id').value='';
+    document.getElementById('modal-task-title').textContent='Новая задача';
+    document.getElementById('btn-task-submit').textContent='Добавить';
+    document.getElementById('f-room').value='';
+    document.getElementById('f-desc').value='';
+    document.getElementById('f-workers').value='';
+    document.getElementById('modal-task').style.display='flex';
+    setTimeout(()=>document.getElementById('f-room').focus(),100);
+  }
+}
+function openEditTask(id){
+  const t=tasks.find(t=>t.id===id);if(!t)return;
+  document.getElementById('edit-task-id').value=id;
+  document.getElementById('modal-task-title').textContent='Редактировать задачу';
+  document.getElementById('btn-task-submit').textContent='Сохранить';
+  document.getElementById('f-room').value=t.room;
+  // разбираем description: первая часть — чекбоксы, остальное — доп. описание
+  const WORKS=['Sa','St','Уборка','Ремонт','Грунт 1 сл','Грунт 2 сл','Полосовка','Шероховка','Обезжирка','Защита','Финиш 1 сл','Финиш 2 сл','Рем. прожогов','Акт'];
+  const lines=(t.description||'').split(String.fromCharCode(10));
+  const firstLine=lines[0]||'';
+  const vals=firstLine.split(', ').map(s=>s.trim());
+  const isCheckedLine=vals.every(v=>WORKS.includes(v));
+  if(isCheckedLine){
+    setWorkChecked(firstLine);
+    document.getElementById('f-desc').value=lines.slice(1).join(String.fromCharCode(10));
+  }else{
+    resetWork();
+    document.getElementById('f-desc').value=t.description||'';
+  }
+  document.getElementById('f-workers').value=t.workers||'';
+  document.getElementById('modal-task').style.display='flex';
+}
+function openEditOtk(id){
+  const o=otkItems.find(o=>o.id===id);if(!o)return;
+  document.getElementById('edit-otk-id').value=id;
+  document.getElementById('modal-otk-title').textContent='Редактировать ОТК';
+  document.getElementById('btn-otk-submit').textContent='Сохранить';
+  document.getElementById('f-otk-room').value=o.room;
+  document.getElementById('f-otk-datetime').value=o.scheduled_dt||'';
+  const WORKS=['Sa','St','Уборка','Ремонт','Грунт 1 сл','Грунт 2 сл','Полосовка','Шероховка','Обезжирка','Защита','Финиш 1 сл','Финиш 2 сл','Рем. прожогов','Акт'];
+  const lines=(o.description||'').split(String.fromCharCode(10));
+  const firstLine=lines[0]||'';
+  const vals=firstLine.split(', ').map(s=>s.trim());
+  const isWork=vals.length>0&&vals.every(v=>WORKS.includes(v));
+  if(isWork){setWorkChecked(firstLine,'work-grid-otk');document.getElementById('f-otk-desc').value=lines.slice(1).join(String.fromCharCode(10));}
+  else{resetWork('work-grid-otk');document.getElementById('f-otk-desc').value=o.description||'';}
+  document.getElementById('modal-otk').style.display='flex';
+}
+function openEditMat(id){
+  const m=materials.find(m=>m.id===id);if(!m)return;
+  document.getElementById('edit-mat-id').value=id;
+  document.getElementById('modal-mat-title').textContent='Редактировать дело';
+  document.getElementById('btn-mat-submit').textContent='Сохранить';
+  document.getElementById('f-mat').value=m.text;
+  document.getElementById('f-mat-due').value=m.due_date||'';
+  document.getElementById('modal-mat').style.display='flex';
+  setTimeout(()=>document.getElementById('f-mat').focus(),100);
+}
+function closeModal(id){document.getElementById(id).style.display='none';}
+function closeModalOutside(e,id){if(e.target.classList.contains('overlay'))closeModal(id);}
+
+// ── WORK CHECKBOXES ──
+function toggleWork(el){el.classList.toggle('checked');}
+
+function _gridEls(gridId,selector){
+  // ищем элементы и в top и в bottom рядах
+  var topId=gridId+'-top';
+  var els=[];
+  var top=document.getElementById(topId);
+  var bot=document.getElementById(gridId);
+  if(top)els=els.concat(Array.from(top.querySelectorAll(selector)));
+  if(bot)els=els.concat(Array.from(bot.querySelectorAll(selector)));
+  return els;
+}
+function getWorkChecked(gridId){
+  gridId=gridId||'work-grid';
+  return _gridEls(gridId,'.work-item.checked').map(el=>el.dataset.val).join(', ');
+}
+function setWorkChecked(val,gridId){
+  gridId=gridId||'work-grid';
+  _gridEls(gridId,'.work-item').forEach(el=>el.classList.remove('checked'));
+  if(!val)return;
+  val.split(', ').forEach(function(v){
+    var found=_gridEls(gridId,'.work-item[data-val="'+v.trim()+'"]');
+    if(found.length)found[0].classList.add('checked');
+  });
+}
+function resetWork(gridId){
+  gridId=gridId||'work-grid';
+  _gridEls(gridId,'.work-item').forEach(el=>el.classList.remove('checked'));
+}
+
+// ── SUBMIT TASK ──
+async function submitTask(){
+  const roomRaw=document.getElementById('f-room').value.trim();
+  const workChecked=getWorkChecked();
+  const extraDesc=document.getElementById('f-desc').value.trim();
+  const desc=[workChecked,extraDesc].filter(Boolean).join(String.fromCharCode(10));
+  const workersRaw=document.getElementById('f-workers').value.trim();
+  const editId=document.getElementById('edit-task-id').value;
+  if(!roomRaw||!desc){showToast('Заполните номер помещения и выберите работы');return;}
+  const btn=document.getElementById('btn-task-submit');btn.disabled=true;
+  if(editId){
+    const old=tasks.find(t=>t.id===editId);
+    const changes=[];
+    if(old.description!==desc)changes.push({task_id:editId,author:'Мастер',field:'description',old_value:old.description,new_value:desc});
+    if((old.workers||'')!==workersRaw)changes.push({task_id:editId,author:'Мастер',field:'workers',old_value:old.workers||'',new_value:workersRaw});
+    if(old.room!==roomRaw)changes.push({task_id:editId,author:'Мастер',field:'room',old_value:old.room,new_value:roomRaw});
+    if(old){old.description=desc;old.workers=workersRaw;old.room=roomRaw;}
+    renderTasks();closeModal('modal-task');
+    const updTask=tasks.find(t=>t.id===editId);
+    if(updTask)await idbPut('tasks',updTask);
+    if(isOnline){
+      try{await db.from('tasks').update({room:roomRaw,description:desc,workers:workersRaw}).eq('id',editId);}
+      catch(e){await queueOp('tasks','update',{id:editId,data:{room:roomRaw,description:desc,workers:workersRaw}});}
+    }else{
+      await queueOp('tasks','update',{id:editId,data:{room:roomRaw,description:desc,workers:workersRaw}});
+    }
+    if(changes.length){
+      for(const c of changes){
+        const logEntry={...c,id:crypto.randomUUID(),created_at:new Date().toISOString()};
+        await idbPut('task_edits',logEntry);
+        if(!editLogs[editId])editLogs[editId]=[];
+        editLogs[editId].unshift(logEntry);
+      }
+      if(isOnline){
+        try{await db.from('task_edits').insert(changes);}
+        catch(e){for(const c of changes)await queueOp('task_edits','insert',c);}
+      }else{
+        for(const c of changes)await queueOp('task_edits','insert',c);
+      }
+      renderTasks();if(currentTab===3)renderHistory();
+    }
+    showToast('\u2713 Сохранено');
+  }else{
+    const newTask={id:crypto.randomUUID(),room:roomRaw,description:desc,workers:workersRaw,date:filterDate,done:false,author:'Мастер',object_id:currentObjectId,created_at:new Date().toISOString()};
+    tasks.push(newTask);
+    await idbPut('tasks',newTask);
+    renderTasks();closeModal('modal-task');
+    document.getElementById('f-room').value='';document.getElementById('f-desc').value='';document.getElementById('f-workers').value='';resetWork();
+    if(isOnline){
+      try{await db.from('tasks').insert(newTask);}
+      catch(e){await queueOp('tasks','insert',newTask);}
+    }else{
+      await queueOp('tasks','insert',newTask);
+    }
+    showToast('\u2713 Задача добавлена');
+  }
+  btn.disabled=false;
+}
+
+// ── SUBMIT MATERIAL ──
+async function submitMaterial(){
+  const text=document.getElementById('f-mat').value.trim();
+  if(!text){showToast('Введите описание');return;}
+  const editId=document.getElementById('edit-mat-id').value;
+  const btn=document.getElementById('btn-mat-submit');btn.disabled=true;
+  if(editId){
+    const old=materials.find(m=>m.id===editId);
+    const oldText=old?old.text:'';
+    const dueVal=document.getElementById('f-mat-due').value||null;
+    if(old){old.text=text;old.due_date=dueVal;}
+    renderMaterials();closeModal('modal-mat');
+    const updMat=materials.find(m=>m.id===editId);
+    if(updMat)await idbPut('materials',updMat);
+    if(isOnline){
+      try{await db.from('materials').update({text,due_date:dueVal}).eq('id',editId);}
+      catch(e){await queueOp('materials','update',{id:editId,data:{text,due_date:dueVal}});}
+    }else{
+      await queueOp('materials','update',{id:editId,data:{text,due_date:dueVal}});
+    }
+    if(oldText!==text){
+      const logEntry={id:crypto.randomUUID(),material_id:editId,author:'Мастер',old_value:oldText,new_value:text,created_at:new Date().toISOString()};
+      await idbPut('material_edits',logEntry);
+      if(!matEditLogs[editId])matEditLogs[editId]=[];
+      matEditLogs[editId].unshift(logEntry);
+      if(isOnline){
+        try{await db.from('material_edits').insert(logEntry);}
+        catch(e){await queueOp('material_edits','insert',logEntry);}
+      }else{
+        await queueOp('material_edits','insert',logEntry);
+      }
+      renderMaterials();
+    }
+    showToast('\u2713 Сохранено');
+  }else{
+    const dueVal=document.getElementById('f-mat-due').value||null;
+    const newMat={id:crypto.randomUUID(),text,date:getTodayStr(),due_date:dueVal,done:false,object_id:currentObjectId,created_at:new Date().toISOString()};
+    materials.unshift(newMat);
+    await idbPut('materials',newMat);
+    renderMaterials();closeModal('modal-mat');
+    document.getElementById('f-mat').value='';
+    document.getElementById('f-mat-due').value='';
+    if(isOnline){
+      try{await db.from('materials').insert(newMat);}
+      catch(e){await queueOp('materials','insert',newMat);}
+    }else{
+      await queueOp('materials','insert',newMat);
+    }
+    showToast('\u2713 Дело добавлено');
+  }
+  btn.disabled=false;
+}
+
+// ── SUBMIT OTK ──
+async function submitOtk(){
+  const roomRaw=document.getElementById('f-otk-room').value.trim();
+  const dtVal=document.getElementById('f-otk-datetime').value||null;
+  const workChecked=getWorkChecked('work-grid-otk');
+  const extraDesc=document.getElementById('f-otk-desc').value.trim();
+  const desc=[workChecked,extraDesc].filter(Boolean).join(String.fromCharCode(10));
+  const editId=document.getElementById('edit-otk-id').value;
+  if(!roomRaw||!desc){showToast('Заполните помещение и описание');return;}
+  const btn=document.getElementById('btn-otk-submit');btn.disabled=true;
+  if(editId){
+    const o=otkItems.find(o=>o.id===editId);
+    if(o){o.room=roomRaw;o.description=desc;o.scheduled_dt=dtVal;}
+    renderOtk();closeModal('modal-otk');
+    const updOtk=otkItems.find(o=>o.id===editId);
+    if(updOtk)await idbPut('otk',updOtk);
+    if(isOnline){
+      try{await db.from('otk').update({room:roomRaw,description:desc,scheduled_dt:dtVal}).eq('id',editId);}
+      catch(e){await queueOp('otk','update',{id:editId,data:{room:roomRaw,description:desc,scheduled_dt:dtVal}});}
+    }else{
+      await queueOp('otk','update',{id:editId,data:{room:roomRaw,description:desc,scheduled_dt:dtVal}});
+    }
+    showToast('\u2713 Сохранено');
+  }else{
+    const newOtk={id:crypto.randomUUID(),room:roomRaw,description:desc,scheduled_dt:dtVal,object_id:currentObjectId,author:'Мастер',created_at:new Date().toISOString()};
+    otkItems.unshift(newOtk);
+    await idbPut('otk',newOtk);
+    renderOtk();closeModal('modal-otk');
+    document.getElementById('f-otk-room').value='';document.getElementById('f-otk-datetime').value='';document.getElementById('f-otk-desc').value='';resetWork('work-grid-otk');
+    if(isOnline){
+      try{await db.from('otk').insert(newOtk);}
+      catch(e){await queueOp('otk','insert',newOtk);}
+    }else{
+      await queueOp('otk','insert',newOtk);
+    }
+    showToast('\u2713 Запись добавлена');
+  }
+  btn.disabled=false;
+}
+
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/Master/sw.js').catch(()=>{});
+  }
+
+function showToast(msg){
+  const old=document.querySelector('.toast');if(old)old.remove();
+  const t=document.createElement('div');t.className='toast';t.innerHTML=msg;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),2200);
+}
+</script>
+</body>
+</html>
